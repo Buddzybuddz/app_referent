@@ -1,65 +1,103 @@
-import Image from "next/image";
+import { getReferes, getSession } from '@/app/actions'
+import RefereCard from '@/components/RefereCard'
+import NewRefereModal from '@/components/NewRefereModal'
+import { PlusCircle, Search, Users, Activity, Target } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
-export default function Home() {
+export default async function DashboardPage() {
+  const referes = await getReferes()
+  const session = await getSession()
+
+  if (!session) return null
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="space-y-8 animate-in fade-in duration-700">
+      {/* Header & Stats section */}
+      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+            Tableau de Bord
+          </h2>
+          <p className="mt-2 text-lg text-slate-500">
+            Bonjour {session.prenom}, vous gérez actuellement <span className="font-bold text-indigo-600 underline underline-offset-4 decoration-indigo-200">{referes.length} membres</span> dans votre équipe.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <NewRefereModal referentId={session.id} />
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card className="border-slate-200 shadow-sm overflow-hidden hover:border-indigo-200 transition-colors">
+          <CardContent className="p-6 flex items-center gap-4">
+             <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
+                <Users className="h-6 w-6 text-indigo-600" />
+             </div>
+             <div>
+                <p className="text-sm font-medium text-slate-500">Total Équipe</p>
+                <p className="text-2xl font-bold text-slate-900">{referes.length}</p>
+             </div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 shadow-sm overflow-hidden hover:border-emerald-200 transition-colors">
+          <CardContent className="p-6 flex items-center gap-4">
+             <div className="h-12 w-12 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                <Target className="h-6 w-6 text-emerald-600" />
+             </div>
+             <div>
+                <p className="text-sm font-medium text-slate-500">Entretiens ce mois</p>
+                <p className="text-2xl font-bold text-slate-900">2</p>
+             </div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 shadow-sm overflow-hidden hover:border-amber-200 transition-colors">
+          <CardContent className="p-6 flex items-center gap-4">
+             <div className="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center">
+                <Activity className="h-6 w-6 text-amber-600" />
+             </div>
+             <div>
+                <p className="text-sm font-medium text-slate-500">PPER à faire</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {referes.filter((r: any) => r.entretiens?.find((e: any) => e.type === 'PPER' && e.statut === 'A_FAIRE')).length}
+                </p>
+             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Grid section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-4 py-2 border-y border-slate-100 mb-6 bg-slate-50/50 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+           <div className="relative flex-1 max-w-md">
+             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+             <Input 
+               placeholder="Rechercher un membre de l'équipe..." 
+               className="pl-10 bg-white border-slate-200 focus:ring-indigo-500 rounded-lg h-11"
+             />
+           </div>
+           <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-500">
+             <span>Filtrer par : </span>
+             <Badge variant="outline" className="cursor-pointer hover:bg-indigo-50 hover:text-indigo-600 border-indigo-100 text-indigo-600 bg-indigo-50/30">Tous</Badge>
+             <Badge variant="outline" className="cursor-pointer hover:bg-slate-100">En retard</Badge>
+             <Badge variant="outline" className="cursor-pointer hover:bg-slate-100">Senior</Badge>
+           </div>
         </div>
-      </main>
+
+        {referes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-slate-300">
+             <Users className="h-12 w-12 text-slate-300 mb-4" />
+             <p className="text-xl font-semibold text-slate-600">Aucun membre dans votre équipe</p>
+             <p className="text-slate-400 mt-2">Commencez par ajouter votre premier collaborateur.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {referes.map((refere: any) => (
+              <RefereCard key={refere.id} refere={refere} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
-  );
+  )
 }
