@@ -5,12 +5,23 @@ import { PlusCircle, Search, Users, Activity, Target } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import LogoutButton from '@/components/LogoutButton'
 
 export default async function DashboardPage() {
   const referes = await getReferes()
   const session = await getSession()
 
-  if (!session) return null
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-slate-300">
+         <p className="text-xl font-semibold text-slate-600">Session expirée ou invalide</p>
+         <p className="text-slate-400 mt-2">Merci de vous déconnecter pour réinitialiser vos accès.</p>
+         <div className="mt-6">
+            <LogoutButton />
+         </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
