@@ -17,7 +17,12 @@ const CollaborateurSchema = z.object({
   telephone: z.string().optional().nullable(),
   ville: z.string().optional().nullable(),
   site: z.string().optional().nullable(),
-  role: z.string().default("NONE"),
+  isRefere: z.boolean().default(false),
+  isReferent: z.boolean().default(false),
+  isAdmin: z.boolean().default(false),
+}).refine(data => data.isRefere || data.isReferent, {
+  message: "Veuillez cocher au moins 'Référé' ou 'Référent'.",
+  path: ["isRefere"]
 })
 
 const ProjetSchema = z.object({
@@ -33,11 +38,13 @@ const ProjetSchema = z.object({
 export async function login(email: string) {
   try {
     const user = await db.collaborateur.findUnique({
-      where: { email }
+      where: { email: email.trim().toLowerCase() }
     })
+    console.log("Login attempt for:", email.trim().toLowerCase())
+    console.log("User found in DB:", user ? { id: user.id, isAdmin: user.isAdmin, isReferent: user.isReferent } : "NULL")
     
-    if (!user || user.role === 'NONE') {
-      return { success: false, error: "Accès refusé ou email inconnu." }
+    if (!user || (!user.isAdmin && !user.isReferent)) {
+      return { success: false, error: "Accès refusé ou rôle insuffisant." }
     }
     
     const cookieStore = await cookies()
@@ -79,24 +86,39 @@ export async function getSession() {
 
 // --- CORE LOGIC & HELPERS ---
 
+function normalizeDate(d: Date | string | null | undefined) {
+  if (!d) return new Date(0)
+  const date = new Date(d)
+  if (isNaN(date.getTime())) {
+    console.error("Invalid date passed to normalizeDate:", d)
+    return new Date(0)
+  }
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+}
+
 async function checkDuplicate(nom: string, prenom: string, dateNaissance: Date | string, excludeId?: string) {
-  const dob = new Date(dateNaissance)
-  const existing = await db.collaborateur.findFirst({
-    where: {
-      nom: { equals: nom },
-      prenom: { equals: prenom },
-      dateNaissance: dob,
-      NOT: excludeId ? { id: excludeId } : undefined
-    }
-  })
-  return existing
+  try {
+    const dob = normalizeDate(dateNaissance)
+    return await db.collaborateur.findFirst({
+      where: {
+        nom: { equals: nom.trim(), mode: 'insensitive' },
+        prenom: { equals: prenom.trim(), mode: 'insensitive' },
+        dateNaissance: dob,
+        NOT: excludeId ? { id: excludeId } : undefined
+      }
+    })
+  } catch (e) {
+    console.error("Error in checkDuplicate:", e)
+    return null
+  }
 }
 
 async function verifyAccess(targetCollaborateurId: string) {
   const session = await getSession()
   if (!session) return false
-  if (session.role === 'ADMIN') return true
-  
+  if (!session || !session.isAdmin) return false
+  if (session.id === targetCollaborateurId) return true
+
   const target = await db.collaborateur.findUnique({
     where: { id: targetCollaborateurId },
     select: { referentId: true }
@@ -113,7 +135,7 @@ export async function getReferes() {
     if (!session) return []
 
     // L'Admin voit tout le monde. Un référent voit son équipe.
-    const where = session.role === 'ADMIN' ? {} : { referentId: session.id }
+    const where = session.isAdmin ? {} : { referentId: session.id }
 
     return await db.collaborateur.findMany({
       where,
@@ -140,7 +162,11 @@ export async function getRefereById(id: string) {
       include: {
         entretiens: { orderBy: { date: 'desc' } },
         competences: true,
-        projets: { orderBy: { dateDebut: 'desc' } }
+        projets: { orderBy: { dateDebut: 'desc' } },
+        referent: true, // Pour voir qui le suit
+        equipe: {
+           include: { projets: true }
+        } // Pour voir qui il suit
       }
     })
   } catch (error) {
@@ -153,23 +179,29 @@ export async function getRefereById(id: string) {
 
 export async function getReferents() {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return []
+  if (!session || !session.isAdmin) return []
 
-  // On retourne tous ceux qui ont un rôle (donc potentiellement des référents)
+  // On retourne TOUT LE MONDE pour l'admin (Admin, Référents, Référés)
   return await db.collaborateur.findMany({
-    where: { NOT: { role: 'NONE' } },
+    include: {
+      referent: true,
+      equipe: true,
+    },
     orderBy: { nom: 'asc' }
   })
 }
 
 // Pour alimenter les listes de sélection de référents
-export async function getAllPotentialReferents() {
+export async function getAllPotentialReferents(excludeId?: string) {
   const session = await getSession()
   if (!session) return []
 
   return await db.collaborateur.findMany({
-    where: { role: { in: ['USER', 'ADMIN'] } },
-    select: { id: true, nom: true, prenom: true },
+    where: { 
+      isReferent: true,
+      NOT: excludeId ? { id: excludeId } : undefined
+    },
+    select: { id: true, nom: true, prenom: true, email: true, isAdmin: true, isReferent: true },
     orderBy: { nom: 'asc' }
   })
 }
@@ -180,36 +212,70 @@ export async function createCollaborateur(data: z.infer<typeof CollaborateurSche
     if (!session) return { success: false, error: "Non authentifié" }
 
     const validated = CollaborateurSchema.parse(data)
+    
+    // Normalisation locale
+    const nom = validated.nom.trim()
+    const prenom = validated.prenom.trim()
+    const dob = normalizeDate(validated.dateNaissance)
 
-    // 1. Check Identité Unique
-    const duplicate = await checkDuplicate(validated.nom, validated.prenom, validated.dateNaissance)
+    // 1. Check Identité Unique (Logique)
+    const duplicate = await checkDuplicate(nom, prenom, dob)
     if (duplicate) {
-      return { success: false, error: `Un profil existe déjà pour ${validated.prenom} ${validated.nom} né(e) le ${new Date(validated.dateNaissance).toLocaleDateString('fr-FR')}.` }
+      return { 
+        success: false, 
+        error: `Impossible de créer : ${prenom} ${nom} né(e) le ${dob.toLocaleDateString('fr-FR')} existe déjà dans vos effectifs.`
+      }
     }
 
     // 2. Check Email Unique if provided
-    if (validated.email) {
-      const emailExists = await db.collaborateur.findUnique({ where: { email: validated.email }})
-      if (emailExists) return { success: false, error: "Cet email est déjà utilisé par un autre compte." }
+    if (validated.email && validated.email.trim() !== "") {
+      const emailExists = await db.collaborateur.findUnique({ 
+        where: { email: validated.email.trim().toLowerCase() }
+      })
+      if (emailExists) {
+        return { 
+          success: false, 
+          error: `L'adresse email "${validated.email}" est déjà associée au profil de ${emailExists.prenom} ${emailExists.nom}.`
+        }
+      }
     }
 
     const newCollab = await db.collaborateur.create({
       data: {
-        ...validated,
+        nom,
+        prenom,
         dateEntree: new Date(validated.dateEntree),
-        dateNaissance: new Date(validated.dateNaissance),
-        email: validated.email || null,
-        referentId: validated.referentId || null,
+        dateNaissance: dob,
+        email: (validated.email && validated.email.trim() !== "") ? validated.email.trim().toLowerCase() : null,
+        isRefere: validated.isRefere,
+        isReferent: validated.isReferent,
+        isAdmin: validated.isAdmin,
+        telephone: validated.telephone,
+        ville: validated.ville,
+        site: validated.site,
+        leaderActuel: validated.leaderActuel,
+        referentId: (validated.referentId === "" || validated.referentId === "none") ? null : validated.referentId,
       }
     })
 
     revalidatePath('/')
     revalidatePath('/admin/referents')
     return { success: true, data: newCollab }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating collaborator:", error)
-    if (error instanceof z.ZodError) return { success: false, error: error.issues[0].message }
-    return { success: false, error: "Erreur technique lors de la création" }
+    
+    if (error instanceof z.ZodError) {
+      return { success: false, error: `Erreur de validation : ${error.issues[0].message}` }
+    }
+
+    // Erreur d'unicité Prisma (P2002) - Sécurité de dernier recours
+    if (error.code === 'P2002') {
+      const target = error.meta?.target || []
+      if (target.includes('email')) return { success: false, error: "Cet email est déjà utilisé." }
+      return { success: false, error: "Un profil identique (nom, prénom et date de naissance) existe déjà." }
+    }
+
+    return { success: false, error: `Erreur technique : ${error.message || "Inconnue"}` }
   }
 }
 
@@ -226,32 +292,40 @@ export async function updateCollaborateur(id: string, data: Partial<z.infer<type
     // Check Duplicate identity if name/dob changed
     if (validated.nom || validated.prenom || validated.dateNaissance) {
       const current = await db.collaborateur.findUnique({ where: { id }, select: { nom: true, prenom: true, dateNaissance: true }})
-      const nom = validated.nom || current!.nom
-      const prenom = validated.prenom || current!.prenom
-      const dob = validated.dateNaissance || current!.dateNaissance
+      const nom = (validated.nom || current!.nom).trim()
+      const prenom = (validated.prenom || current!.prenom).trim()
+      const dob = normalizeDate(validated.dateNaissance || current!.dateNaissance)
       
       const duplicate = await checkDuplicate(nom, prenom, dob, id)
       if (duplicate) return { success: false, error: "Cette identité (Nom/Prénom/Date) est déjà prise par un autre profil." }
     }
 
+    const dataToUpdate: any = {
+      ...validated,
+      dateEntree: validated.dateEntree ? new Date(validated.dateEntree as string) : undefined,
+      dateNaissance: validated.dateNaissance ? normalizeDate(validated.dateNaissance as string) : undefined,
+      email: validated.email === '' ? null : (validated.email?.trim() || undefined),
+      referentId: validated.referentId === '' || validated.referentId === 'none' ? null : (validated.referentId || undefined),
+    }
+    
+    if (validated.nom) dataToUpdate.nom = validated.nom.trim()
+    if (validated.prenom) dataToUpdate.prenom = validated.prenom.trim()
+
     const updated = await db.collaborateur.update({
       where: { id },
-      data: {
-        ...validated,
-        dateEntree: validated.dateEntree ? new Date(validated.dateEntree as string) : undefined,
-        dateNaissance: validated.dateNaissance ? new Date(validated.dateNaissance as string) : undefined,
-        email: validated.email === '' ? null : (validated.email || undefined),
-        referentId: validated.referentId === '' ? null : (validated.referentId || undefined),
-      }
+      data: dataToUpdate
     })
 
     revalidatePath('/')
     revalidatePath(`/refere/${id}`)
     revalidatePath('/admin/referents')
     return { success: true, data: updated }
-  } catch (error) {
-    console.error("Error updating collaborator:", error)
-    return { success: false, error: "Erreur lors de la mise à jour" }
+  } catch (error: any) {
+    console.error("Error updating collaborator details:", error)
+    if (error.code === 'P2002') {
+      return { success: false, error: "Ces modifications entreraient en conflit avec un profil existant." }
+    }
+    return { success: false, error: `Erreur technique : ${error.message || "Erreur lors de la mise à jour"}` }
   }
 }
 
@@ -261,7 +335,7 @@ export const updateReferent = updateCollaborateur
 export async function deleteCollaborateur(id: string) {
   try {
     const session = await getSession()
-    if (!session || session.role !== 'ADMIN') return { success: false, error: "Droits insuffisants" }
+    if (!session || !session.isAdmin) return { success: false, error: "Droits insuffisants" }
 
     if (id === session.id) return { success: false, error: "Impossible de supprimer votre propre compte." }
 

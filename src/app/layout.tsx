@@ -37,12 +37,12 @@ export default async function RootLayout({
                 </h1>
               </Link>
 
-              {session?.role === 'ADMIN' && (
+              {session?.isAdmin && (
                 <Link 
                   href="/admin/referents" 
                   className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors ml-4"
                 >
-                  <Settings className="h-4 w-4" /> Gestion Équipe
+                  <Settings className="h-4 w-4" /> Gestion des collaborateurs
                 </Link>
               )}
             </div>
@@ -54,7 +54,7 @@ export default async function RootLayout({
                   <span className="text-sm font-semibold text-slate-700">
                     {session.prenom} {session.nom}
                   </span>
-                  {session.role === 'ADMIN' && (
+                  {session.isAdmin && (
                     <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest ml-1">
                       Admin
                     </span>

@@ -14,31 +14,23 @@ model Collaborateur {
   prenom        String
   dateNaissance DateTime
   dateEntree    DateTime        @default(now())
-  
-  // Accès & Identité
   email         String?         @unique
-  role          String          @default("NONE") // NONE, USER, ADMIN
-  
-  // Infos Perso
+  isRefere      Boolean         @default(false)
+  isReferent    Boolean         @default(false)
+  isAdmin       Boolean         @default(false)
   telephone     String?
   ville         String?
   site          String?
   leaderActuel  String?
-  
-  // Hiérarchie (Un référent est un collaborateur qui en suit d'autres)
   referentId    String?
-  referent      Collaborateur?  @relation("Hierarchie", fields: [referentId], references: [id])
-  equipe        Collaborateur[] @relation("Hierarchie")
-
-  // Données de suivi
-  projets       Projet[]
-  competences   Competence[]
-  entretiens    Entretien[]
-
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+  referent      Collaborateur?  @relation("Hierarchie", fields: [referentId], references: [id])
+  equipe        Collaborateur[] @relation("Hierarchie")
+  competences   Competence[]
+  entretiens    Entretien[]
+  projets       Projet[]
 
-  // Contrôle d'unicité par triplet Nom/Prénom/DateNaissance
   @@unique([nom, prenom, dateNaissance])
 }
 
@@ -48,26 +40,26 @@ model Projet {
   description     String?
   dateDebut       DateTime
   dateFin         DateTime?
-  collaborateur   Collaborateur @relation(fields: [collaborateurId], references: [id], onDelete: Cascade)
   collaborateurId String
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  collaborateur   Collaborateur @relation(fields: [collaborateurId], references: [id], onDelete: Cascade)
 }
 
 model Competence {
   id              String        @id @default(cuid())
   nom             String
   acquise         Boolean       @default(false)
-  collaborateur   Collaborateur @relation(fields: [collaborateurId], references: [id], onDelete: Cascade)
   collaborateurId String
+  collaborateur   Collaborateur @relation(fields: [collaborateurId], references: [id], onDelete: Cascade)
 }
 
 model Entretien {
   id              String        @id @default(cuid())
   date            DateTime
-  type            String        // PPER, CARRIERE, etc.
-  statut          String        // FAIT, A_FAIRE
+  type            String
+  statut          String
   compteRendu     String?
-  collaborateur   Collaborateur @relation(fields: [collaborateurId], references: [id], onDelete: Cascade)
   collaborateurId String
+  collaborateur   Collaborateur @relation(fields: [collaborateurId], references: [id], onDelete: Cascade)
 }

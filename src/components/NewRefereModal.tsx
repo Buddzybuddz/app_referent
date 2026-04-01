@@ -40,7 +40,9 @@ export default function NewRefereModal({ referentId }: { referentId: string }) {
       telephone: formData.get('telephone') as string,
       ville: formData.get('ville') as string,
       site: formData.get('site') as string,
-      role: 'NONE', // Standard collaborator added from dashboard has no login by default
+      isRefere: formData.get('isRefere') === 'on',
+      isReferent: formData.get('isReferent') === 'on',
+      isAdmin: formData.get('isAdmin') === 'on',
     }
 
     startTransition(async () => {
@@ -116,6 +118,24 @@ export default function NewRefereModal({ referentId }: { referentId: string }) {
               <Input id="site" name="site" placeholder="Ex: Site Innovation" className="border-slate-200 focus:border-indigo-500" />
             </div>
           </div>
+          <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4">
+            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Accès & Rôles</Label>
+            <div className="flex flex-wrap gap-4 text-slate-700">
+              <div className="flex items-center space-x-2">
+                <input type="checkbox" id="new-isRefere" name="isRefere" className="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+                <Label htmlFor="new-isRefere" className="text-sm font-medium">Référé</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input type="checkbox" id="new-isReferent" name="isReferent" className="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+                <Label htmlFor="new-isReferent" className="text-sm font-medium">Référent</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input type="checkbox" id="new-isAdmin" name="isAdmin" className="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+                <Label htmlFor="new-isAdmin" className="text-sm font-medium">Administrateur</Label>
+              </div>
+            </div>
+          </div>
+
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
             <Button type="submit" disabled={isPending} className="bg-indigo-600 hover:bg-indigo-700 min-w-[120px]">

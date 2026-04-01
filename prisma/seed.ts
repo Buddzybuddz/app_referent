@@ -14,7 +14,9 @@ async function main() {
       nom: 'Baudouin',
       prenom: 'Jérémy',
       email: 'baudouinjeremy@gmail.com',
-      role: 'ADMIN',
+      isAdmin: true,
+      isReferent: true,
+      isRefere: false,
       dateNaissance: new Date('1985-06-15T00:00:00Z'),
       dateEntree: new Date('2020-01-01T00:00:00Z'),
       site: 'Siège Social',
@@ -28,7 +30,9 @@ async function main() {
       nom: 'Martin',
       prenom: 'Alice',
       email: 'alice@mentor.com',
-      role: 'USER',
+      isRefere: false,
+      isReferent: true,
+      isAdmin: false,
       dateNaissance: new Date('1992-03-20T00:00:00Z'),
       dateEntree: new Date('2022-05-10T00:00:00Z'),
       referentId: admin.id, // Alice est suivie par Jérémy
@@ -42,7 +46,9 @@ async function main() {
     data: {
       nom: 'Leblanc',
       prenom: 'Clare',
-      role: 'NONE', // Ne peut pas se connecter
+      isRefere: true,
+      isReferent: false,
+      isAdmin: false,
       dateNaissance: new Date('1995-04-12T00:00:00Z'),
       dateEntree: new Date('2023-01-15T00:00:00Z'),
       referentId: referentAlice.id, // Clare est suivie par Alice
@@ -67,7 +73,9 @@ async function main() {
     data: {
       nom: 'Dubois',
       prenom: 'Antoine',
-      role: 'NONE',
+      isRefere: true,
+      isReferent: false,
+      isAdmin: false,
       dateNaissance: new Date('1998-11-05T00:00:00Z'),
       dateEntree: new Date('2024-02-01T00:00:00Z'),
       referentId: admin.id, // Antoine est suivi par Jérémy

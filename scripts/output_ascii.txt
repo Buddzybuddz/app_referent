@@ -1,0 +1,7 @@
+Liste des collaborateurs :
+ID: cmng7frrj0000aqc39pzpr4mf | Nom: Baudouin | Prenom: J??r??my | DateNaissance: 1985-06-15T00:00:00.000Z
+ID: cmng7fs1w0009aqc3pwjn2sxc | Nom: Dubois | Prenom: Antoine | DateNaissance: 1998-11-05T00:00:00.000Z
+ID: cmng7frul0004aqc3z0tpfb18 | Nom: Leblanc | Prenom: Clare | DateNaissance: 1995-04-12T00:00:00.000Z
+ID: cmng7frt40002aqc3l47sgtez | Nom: Martin | Prenom: Alice | DateNaissance: 1992-03-20T00:00:00.000Z
+
+Doublons d??tect??s :
